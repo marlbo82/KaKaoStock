@@ -2,51 +2,54 @@ package com.kakao.controller;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.kakao.model.TransHistoryVO;
 import com.kakao.model.TransInfoByCustomerVO;
-import com.kakao.service.TransHistoryService;
+import com.kakao.model.TransVO;
+import com.kakao.service.TransService;
 
 @RestController
 @RequestMapping("/customers")
 public class CustomerController {
 	
 	@Autowired
-	private TransHistoryService transHistoryService;
+	private TransService transService;
+	
+	private final int FROM_YEAR = 2018;
+	private final int TO_YEAR = 2019;
+	
+	/**
+	 *  1. 2018년, 2019년 각 연도별 합계 금액이 가장 많은 고객을 추출하는 API 개발.
+	 *     (단, 취소여부가 ‘Y’ 거래는 취소된 거래임, 합계 금액은 거래금액에서 수수료를 차감한 금액임)
+	 */
+	@RequestMapping(params = "func=getLargestSumAmtCustomerByYear", method = RequestMethod.GET)
+	public Object getLargestSumAmtCustomerByYear() {
 		
-	@RequestMapping(name = "get_largest_sumAmt_customer_by_year", value = "/amounts", method = RequestMethod.GET)
-	public @ResponseBody Object getSumAmtCustomerList(HttpServletRequest request,
-													  @RequestParam(value = "fromYear", required = false) @DateTimeFormat(pattern="yyyy") int fromDt,
-													  @RequestParam(value = "toYear", required = false) @DateTimeFormat(pattern="yyyy") int toDt) {
+		TransVO transVO = new TransVO();
+		transVO.setFromYear(FROM_YEAR);
+		transVO.setToYear(TO_YEAR);
 		
-		TransHistoryVO transHistoryVO = new TransHistoryVO();
-		transHistoryVO.setFromYear(fromDt);
-		transHistoryVO.setToYear(toDt);
-		
-		List<TransInfoByCustomerVO> result = transHistoryService.getSumAmtByCustomer(transHistoryVO);
+		List<TransInfoByCustomerVO> result = transService.getLargestSumAmtCustomerByYear(transVO);
 		
 		return result;
 	}
 	
-	@RequestMapping(name = "get_noTrans_customer_by_year", value = "/trans", method = RequestMethod.GET)
-	public @ResponseBody Object getNoTransCustomerList(HttpServletRequest request,
-													   @RequestParam(value = "fromYear", required = false) @DateTimeFormat(pattern="yyyy") int fromDt,
-													   @RequestParam(value = "toYear", required = false) @DateTimeFormat(pattern="yyyy") int toDt) {
+	
+	/**
+	 *  2. 2018년 또는 2019년에 거래가 없는 고객을 추출하는 API 개발.
+	 *     (취소여부가 ‘Y’ 거래는 취소된 거래임)
+	 */
+	@RequestMapping(params = "func=getNoTransCustomerListByYear", method = RequestMethod.GET)
+	public Object getNoTransCustomerListByYear() {
 		
-		TransHistoryVO transHistoryVO = new TransHistoryVO();
-		transHistoryVO.setFromYear(fromDt);
-		transHistoryVO.setToYear(toDt);
+		TransVO transVO = new TransVO();
+		transVO.setFromYear(FROM_YEAR);
+		transVO.setToYear(TO_YEAR);
 		
-		List<TransInfoByCustomerVO> result = transHistoryService.getNoTransCustomers(transHistoryVO);
+		List<TransInfoByCustomerVO> result = transService.getNoTransCustomerListByYear(transVO);
 		
 		return result;
 	}

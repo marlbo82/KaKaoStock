@@ -12,7 +12,7 @@ public class TransInfoByBranchVO {
 	private String brName;
 	private String brCode;
 	private Integer sumAmt;
-
+	
 	public String getBrName() {
 		return brName;
 	}

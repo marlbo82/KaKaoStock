@@ -1,5 +1,6 @@
 package com.kakao.service;
 
+import java.lang.reflect.Type;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -14,49 +15,52 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.kakao.dao.AcctDao;
-import com.kakao.dao.TransHistoryDao;
+import com.kakao.dao.TransDao;
 import com.kakao.model.AcctVO;
 import com.kakao.model.MaxAcctVO;
-import com.kakao.model.TransHistoryVO;
+import com.kakao.model.TransInfoByBranchVO;
 import com.kakao.model.TransInfoByCustomerVO;
+import com.kakao.model.TransVO;
 
-@Service("com.kakao.service.TransHistoryService")
-public class TransHistoryServiceImpl implements TransHistoryService {
+@Service("com.kakao.service.TransService")
+public class TransServiceImpl implements TransService {
 	
 	@Autowired
-	private TransHistoryDao transHistoryDao;
+	private TransDao transDao;
 	
 	@Autowired
 	private AcctDao acctDao;
 
 	@Override
-	public List<TransInfoByCustomerVO> getSumAmtByCustomer(TransHistoryVO transHistoryVO) {
-		/** return 결과 값을 담기 위한 Object **/
+	public List<TransInfoByCustomerVO> getLargestSumAmtCustomerByYear(TransVO transVO) {
+		/** return 결과 값을 담기 위한 Object */
 		List<TransInfoByCustomerVO> result = new ArrayList<TransInfoByCustomerVO>();
 		
-		/** Date 형태로 검색 날짜 형변환 **/
+		/** Date 형태로 검색 날짜 형변환 */
 		Date fromTgtDate = new Date();
 		Date toTgtDate = new Date();
 		try {
-			fromTgtDate = new SimpleDateFormat("yyyy").parse(transHistoryVO.getFromYear()+"");
-			toTgtDate = new SimpleDateFormat("yyyy").parse((transHistoryVO.getToYear()+1)+"");
+			fromTgtDate = new SimpleDateFormat("yyyy").parse(transVO.getFromYear()+"");
+			toTgtDate = new SimpleDateFormat("yyyy").parse((transVO.getToYear()+1)+"");
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
 		
-		/** 년도 범위내, 년도별 합계 금액이 많은 고객의 acctNo 및 sumAmt를 담기 위한 Map 세팅**/
+		/** 년도 범위내, 년도별 합계 금액이 많은 고객의 acctNo 및 sumAmt를 담기 위한 Map 세팅 */
 		Map<Integer, MaxAcctVO> sumAmtMap = new HashMap<Integer, MaxAcctVO>();
-		for (int i = 0; i < ((transHistoryVO.getToYear() - transHistoryVO.getFromYear()) + 1); i++) {
+		for (int i = 0; i < ((transVO.getToYear() - transVO.getFromYear()) + 1); i++) {
 			MaxAcctVO tmpMaxAcctVO = new MaxAcctVO(); 
-			sumAmtMap.put((transHistoryVO.getFromYear() + i), tmpMaxAcctVO);
+			sumAmtMap.put((transVO.getFromYear() + i), tmpMaxAcctVO);
 		}
 		
-		/** 년도 범위내, 년도별 합계 금액이 많은 고객의 acctNo 및 sumAmt 추출 **/
+		/** 년도 범위내, 년도별 합계 금액이 많은 고객의 acctNo 및 sumAmt 추출 */
 		Map<String, TransInfoByCustomerVO> map = new HashMap<String, TransInfoByCustomerVO>();
 		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("YYYY");
-		for (TransHistoryVO item : transHistoryDao.getTransHistoryList()) {
-			// 취소되지 않은 거래들 중, 검색 조건으로 주어진 년도 범위내 데이터만 검색
+		for (TransVO item : transDao.getTransList()) {
+			/** 취소되지 않은 거래들 중, 검색 조건으로 주어진 년도 범위내 데이터만 검색 */
 			if ("Y".equals(item.getIsCancel()) && item.getTransDate().after(fromTgtDate)
 											   && item.getTransDate().before(toTgtDate)) {
 				int sumAmt = 0;
@@ -71,7 +75,7 @@ public class TransHistoryServiceImpl implements TransHistoryService {
 					map.put(item.getAcctNo(), tmpVO);
 				}
 				
-				// 년도 범위내, 년도를 key로 삼는 Map에 각 년도별 최대 거래값과 거래 고객번호 갱신
+				/** 년도 범위내, 년도를 key로 삼는 Map에 각 년도별 최대 거래값과 거래 고객번호 갱신 */
 				int tgtYear = Integer.parseInt(simpleDateFormat.format(item.getTransDate()));
 				if (sumAmtMap.get(tgtYear).getMaxSumAmt() < sumAmt) {
 					sumAmtMap.get(tgtYear).setMaxSumAmt(sumAmt);
@@ -82,7 +86,7 @@ public class TransHistoryServiceImpl implements TransHistoryService {
 			}
 		}
 
-		/** 년도 범위내, 년도별 최대 거래 고객의 정보 조합 **/
+		/** 년도 범위내, 년도별 최대 거래 고객의 정보 조합 */
 		GregorianCalendar gcal = new GregorianCalendar();
 		int currentYear = gcal.get(Calendar.YEAR);
 		for (int key : sumAmtMap.keySet()) {
@@ -100,42 +104,44 @@ public class TransHistoryServiceImpl implements TransHistoryService {
 	}
 
 	@Override
-	public List<TransInfoByCustomerVO> getNoTransCustomers(TransHistoryVO transHistoryVO) {
-		/** return 결과 값을 담기 위한 Object **/
+	public List<TransInfoByCustomerVO> getNoTransCustomerListByYear(TransVO transVO) {
+		/** return 결과 값을 담기 위한 Object */
 		List<TransInfoByCustomerVO> result = new ArrayList<TransInfoByCustomerVO>();
 		
-		/** Date 형태로 검색 날짜 형변환 **/
+		/** Date 형태로 검색 날짜 형변환 */
 		Date fromTgtDate = new Date();
 		Date toTgtDate = new Date();
 		try {
-			fromTgtDate = new SimpleDateFormat("yyyy").parse(transHistoryVO.getFromYear()+"");
-			toTgtDate = new SimpleDateFormat("yyyy").parse((transHistoryVO.getToYear()+1)+"");
+			fromTgtDate = new SimpleDateFormat("yyyy").parse(transVO.getFromYear()+"");
+			toTgtDate = new SimpleDateFormat("yyyy").parse((transVO.getToYear()+1)+"");
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
 		
-		/** 년도 범위내, 년도별 거래가 없는 고객 acctNo 추출 **/
+		/** 년도 범위내, 년도별 거래가 없는 고객 acctNo 추출 */
 		Map<Integer, Map<String, AcctVO>> map = new HashMap<Integer, Map<String, AcctVO>>();
-		Map<String, AcctVO> acctListMap = acctDao.getAcctListMap();
+		Map<String, AcctVO> actListMap = acctDao.getAcctListMap();
 		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("YYYY");
-		for (TransHistoryVO item : transHistoryDao.getTransHistoryList()) {
-			// 취소되지 않은 거래들 중, 검색 조건으로 주어진 년도 범위내 데이터만 검색
+		for (TransVO item : transDao.getTransList()) {
+			/** 취소되지 않은 거래들 중, 검색 조건으로 주어진 년도 범위내 데이터만 검색 */
 			if ("Y".equals(item.getIsCancel()) && item.getTransDate().after(fromTgtDate)
 											   && item.getTransDate().before(toTgtDate)) {
 				int tgtYear = Integer.parseInt(simpleDateFormat.format(item.getTransDate()));
 				if (map.get(tgtYear) != null) {
 					map.get(tgtYear).remove(item.getAcctNo());
-				} else {
-					// acctListMap 복제
-					Map<String, AcctVO> tmpAcctListMap = new HashMap<String, AcctVO>();
-					tmpAcctListMap.putAll(acctListMap);
-					tmpAcctListMap.remove(item.getAcctNo());
-					map.put(tgtYear, tmpAcctListMap);
+				} else {					
+					Gson gson = new Gson();
+					String jsonString = gson.toJson(actListMap);
+					Type type = new TypeToken<HashMap<String, AcctVO>>(){}.getType();
+					
+					HashMap<String, AcctVO> clonedMap = gson.fromJson(jsonString, type);	// acctListMap 초기 세팅 
+					clonedMap.remove(item.getAcctNo());
+					map.put(tgtYear, clonedMap);
 				}
 			}
 		}
 		
-		/** 년도 범위내, 년도별 최대 거래 고객의 정보 조합 **/
+		/** 년도 범위내, 년도별 최대 거래 고객의 정보 조합 */
 		GregorianCalendar gcal = new GregorianCalendar();
 		int currentYear = gcal.get(Calendar.YEAR);
 		for (int key : map.keySet()) {
